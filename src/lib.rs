@@ -135,22 +135,24 @@ impl Contract for Wsdl {
         let text = match std::str::from_utf8(stream.bytes()) {
             Ok(text) => text,
             Err(error) => {
-                return Ok(result(vec![issue(
-                    "malformed",
+                return Ok(ValidationResult::of(vec![ValidationIssue::malformed(
                     &format!("not text: {error}"),
-                    None,
                 )]));
             }
         };
         let definitions = match Definitions::parse(text) {
             Ok(definitions) => definitions,
-            Err(message) => return Ok(result(vec![issue("malformed", &message, None)])),
+            Err(message) => {
+                return Ok(ValidationResult::of(vec![ValidationIssue::malformed(
+                    &message,
+                )]));
+            }
         };
         let mut issues: Vec<ValidationIssue> = definitions
             .dangling()
             .into_iter()
             .map(|reference| {
-                issue(
+                ValidationIssue::new(
                     "reference",
                     &format!(
                         "refers to {} {}, which is not defined",
@@ -162,7 +164,7 @@ impl Contract for Wsdl {
             .collect();
         if let Some(service) = &self.service {
             if !definitions.services.contains(&service.name) {
-                issues.push(issue(
+                issues.push(ValidationIssue::new(
                     "service",
                     &format!("does not define service {}", service.name),
                     None,
@@ -173,29 +175,14 @@ impl Contract for Wsdl {
                     .iter()
                     .any(|(s, p)| s == &service.name && p == port)
             {
-                issues.push(issue(
+                issues.push(ValidationIssue::new(
                     "service",
                     &format!("service {} has no port {port}", service.name),
                     Some(format!("service {}", service.name)),
                 ));
             }
         }
-        Ok(result(issues))
-    }
-}
-
-fn issue(code: &str, message: &str, path: Option<String>) -> ValidationIssue {
-    ValidationIssue {
-        code: code.to_string(),
-        message: message.to_string(),
-        path,
-    }
-}
-
-fn result(issues: Vec<ValidationIssue>) -> ValidationResult {
-    ValidationResult {
-        valid: issues.is_empty(),
-        issues,
+        Ok(ValidationResult::of(issues))
     }
 }
 
@@ -221,15 +208,8 @@ impl ContractFactory for WsdlFactory {
 mod tests {
     use super::*;
     use crate::definitions::tests::{ORDERS_11, ORDERS_20};
+    use contract::fixture::stream_as as stream;
     use xcore::StreamId;
-
-    fn stream(text: &str, media_type: Option<&str>) -> Stream {
-        Stream::new(
-            StreamId::new(1),
-            text.as_bytes().to_vec(),
-            media_type.map(str::to_string),
-        )
-    }
 
     #[test]
     fn a_sound_description_holds_bare_and_bound() {
