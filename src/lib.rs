@@ -20,11 +20,11 @@
 
 pub mod definitions;
 
-use contract::{
+use definitions::Definitions;
+use sdk::contract::{
     Contract, ContractDescriptor, ContractError, ContractFactory, ContractId, ValidationIssue,
     ValidationResult,
 };
-use definitions::Definitions;
 use stream::Stream;
 
 /// The bound service, and optionally its port or endpoint.
