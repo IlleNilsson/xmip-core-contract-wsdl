@@ -26,6 +26,7 @@ use contract::{
 };
 use definitions::Definitions;
 use stream::Stream;
+use xcore::settings::{Applies, Kind, Presence, Setting, Settings};
 
 /// The bound service, and optionally its port or endpoint.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -196,6 +197,10 @@ impl ContractFactory for WsdlFactory {
         "wsdl"
     }
 
+    fn settings(&self) -> &'static Settings {
+        SETTINGS
+    }
+
     fn load(&self, reference: &str) -> Result<Box<dyn Contract>, ContractError> {
         if reference.trim().is_empty() {
             return Ok(Box::new(Wsdl::new()));
@@ -203,6 +208,18 @@ impl ContractFactory for WsdlFactory {
         Ok(Box::new(Wsdl::of(Service::parse(reference)?)))
     }
 }
+
+/// What a Location gives this contract (ADR-0064, amendment 2026-09-26).
+const SETTINGS: &Settings = &Settings {
+    technology: env!("CARGO_PKG_NAME"),
+    settings: &[Setting {
+        name: "reference",
+        kind: Kind::Text,
+        presence: Presence::Optional,
+        meaning: "The service, OrderService or OrderService/OrdersPort, it must define.",
+        applies: Applies::Both,
+    }],
+};
 
 #[cfg(test)]
 mod tests {
@@ -287,5 +304,33 @@ mod tests {
         assert!(Service::parse("").is_err());
         assert!(Service::parse("a/b/c").is_err());
         assert!(Service::parse("a/").is_err());
+    }
+
+    #[test]
+    fn wsdl_declares_its_settings_and_reads_through_them() {
+        assert!(SETTINGS.problems().is_empty(), "{:?}", SETTINGS.problems());
+        let given = |name: &str, value: &str| {
+            (
+                name.to_string(),
+                xcore::settings::Given::Text(value.to_string()),
+            )
+        };
+        assert!(WsdlFactory.open(Applies::Both, &[]).is_ok(), "bare");
+        let bound = WsdlFactory
+            .open(
+                Applies::Receive,
+                &[given("reference", "OrderService/OrdersPort")],
+            )
+            .expect("bound");
+        assert!(bound.descriptor().id.0.contains("wsdl:OrderService"));
+        let refused = WsdlFactory
+            .open(Applies::Send, &[given("unheard_of", "x")])
+            .err()
+            .expect("an unknown setting is refused");
+        assert!(
+            refused.message.contains("unheard_of"),
+            "{}",
+            refused.message
+        );
     }
 }
