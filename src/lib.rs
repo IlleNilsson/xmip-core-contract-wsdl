@@ -126,18 +126,18 @@ impl Contract for Wsdl {
         }) {
             return Ok(true);
         }
-        let Ok(text) = std::str::from_utf8(stream.bytes()) else {
+        let Ok(text) = stream.text() else {
             return Ok(false);
         };
         Ok(text.contains(definitions::WSDL_11) || text.contains(definitions::WSDL_20))
     }
 
     fn validate(&self, stream: &Stream) -> Result<ValidationResult, ContractError> {
-        let text = match std::str::from_utf8(stream.bytes()) {
+        let text = match stream.text() {
             Ok(text) => text,
             Err(error) => {
                 return Ok(ValidationResult::of(vec![ValidationIssue::malformed(
-                    &format!("not text: {error}"),
+                    format!("not text: {error}"),
                 )]));
             }
         };
@@ -155,7 +155,7 @@ impl Contract for Wsdl {
             .map(|reference| {
                 ValidationIssue::new(
                     "reference",
-                    &format!(
+                    format!(
                         "refers to {} {}, which is not defined",
                         reference.to_kind, reference.to
                     ),
@@ -167,7 +167,7 @@ impl Contract for Wsdl {
             if !definitions.services.contains(&service.name) {
                 issues.push(ValidationIssue::new(
                     "service",
-                    &format!("does not define service {}", service.name),
+                    format!("does not define service {}", service.name),
                     None,
                 ));
             } else if let Some(port) = &service.port
@@ -178,7 +178,7 @@ impl Contract for Wsdl {
             {
                 issues.push(ValidationIssue::new(
                     "service",
-                    &format!("service {} has no port {port}", service.name),
+                    format!("service {} has no port {port}", service.name),
                     Some(format!("service {}", service.name)),
                 ));
             }
