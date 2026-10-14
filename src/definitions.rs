@@ -213,7 +213,7 @@ pub(crate) mod tests {
             [("OrderService".to_string(), "OrdersPort".to_string())]
         );
         assert_eq!(v11.references.len(), 4);
-        assert!(v11.dangling().is_empty());
+        assert_eq!(v11.dangling(), [] as [&Reference; 0]);
         let v20 = Definitions::parse(ORDERS_20).expect("2.0");
         assert_eq!(v20.version, Some(Version::V20));
         assert_eq!(v20.port_types, ["Orders"]);
@@ -221,7 +221,7 @@ pub(crate) mod tests {
             v20.ports,
             [("OrderService".to_string(), "Main".to_string())]
         );
-        assert!(v20.dangling().is_empty());
+        assert_eq!(v20.dangling(), [] as [&Reference; 0]);
     }
 
     #[test]
