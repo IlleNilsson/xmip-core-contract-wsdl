@@ -126,14 +126,14 @@ impl Contract for Wsdl {
         }) {
             return Ok(true);
         }
-        let Ok(text) = stream.text() else {
+        let Ok(text) = contract::text(stream)? else {
             return Ok(false);
         };
         Ok(text.contains(definitions::WSDL_11) || text.contains(definitions::WSDL_20))
     }
 
     fn validate(&self, stream: &Stream) -> Result<ValidationResult, ContractError> {
-        let text = match stream.text() {
+        let text = match contract::text(stream)? {
             Ok(text) => text,
             Err(error) => {
                 return Ok(ValidationResult::of(vec![ValidationIssue::malformed(
