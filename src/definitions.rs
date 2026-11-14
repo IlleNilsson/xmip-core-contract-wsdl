@@ -2,7 +2,7 @@
 //! interfaces, bindings, services and their ports or endpoints — and the
 //! references between them, which is where a description is unsound.
 
-use roxmltree::{Document, Node};
+use codec::xml::tree::{Document, Node};
 
 pub const WSDL_11: &str = "http://schemas.xmlsoap.org/wsdl/";
 pub const WSDL_20: &str = "http://www.w3.org/ns/wsdl";
@@ -47,7 +47,7 @@ impl Definitions {
     pub fn parse(text: &str) -> Result<Self, String> {
         let document = Document::parse(text).map_err(|error| format!("not XML: {error}"))?;
         let root = document.root_element();
-        let version = match (root.tag_name().namespace(), root.tag_name().name()) {
+        let version = match (root.namespace(), root.local()) {
             (Some(WSDL_11), "definitions") => Version::V11,
             (Some(WSDL_20), "description") => Version::V20,
             (namespace, name) => {
@@ -61,21 +61,21 @@ impl Definitions {
             version: Some(version),
             ..Self::default()
         };
-        for child in root.children().filter(Node::is_element) {
+        for child in root.elements() {
             definitions.read(version, child);
         }
         Ok(definitions)
     }
 
-    fn read(&mut self, version: Version, node: Node) {
+    fn read(&mut self, version: Version, node: Node<'_>) {
         let name = attribute(node, "name");
-        match (version, node.tag_name().name()) {
+        match (version, node.local()) {
             (Version::V11, "message") => self.messages.push(name),
             (Version::V11, "portType") | (Version::V20, "interface") => {
                 self.port_types.push(name.clone());
                 for operation in named(node, "operation") {
                     let from = format!("operation {name}/{}", attribute(operation, "name"));
-                    for part in operation.children().filter(Node::is_element) {
+                    for part in operation.elements() {
                         let referred = if version == Version::V11 {
                             attribute(part, "message")
                         } else {
@@ -147,13 +147,12 @@ impl Definitions {
     }
 }
 
-fn attribute(node: Node, name: &str) -> String {
+fn attribute(node: Node<'_>, name: &str) -> String {
     node.attribute(name).unwrap_or("").to_string()
 }
 
-fn named<'a>(node: Node<'a, 'a>, name: &'a str) -> impl Iterator<Item = Node<'a, 'a>> {
-    node.children()
-        .filter(move |child| child.is_element() && child.tag_name().name() == name)
+fn named<'a>(node: Node<'a>, name: &'a str) -> impl Iterator<Item = Node<'a>> {
+    node.elements().filter(move |child| child.local() == name)
 }
 
 /// `tns:Order` as `Order`.
